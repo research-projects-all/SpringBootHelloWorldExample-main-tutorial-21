@@ -25,8 +25,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run Semgrep
-        run: semgrep scan --config .semgrep --sarif --output semgrep.sarif
+      - name: Run Semgrep default rules
+        run: semgrep scan --config p/default --sarif --output semgrep.sarif
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
