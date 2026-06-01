@@ -13,7 +13,10 @@
 		<version>1.5.3.RELEASE</version>
 	</parent>
 	<properties>
-  		<sonar.organization>research-projects-all</sonar.organization>
+	    <java.version>8</java.version>
+	    <maven.compiler.source>8</maven.compiler.source>
+	    <maven.compiler.target>8</maven.compiler.target>
+	    <sonar.organization>research-projects-all</sonar.organization>
 	</properties>
 	<dependencies>
 		<dependency>
