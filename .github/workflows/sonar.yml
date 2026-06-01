@@ -25,17 +25,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Java 8
+      - name: Set up Java 8 for build
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 8
           cache: maven
 
-      - name: Build and run Sonar scan
+      - name: Build project
+        run: mvn -B clean verify
+
+      - name: Set up Java 17 for Sonar
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      - name: Run Sonar scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          mvn -B clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+          mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.projectKey=research-projects-all_SpringBootHelloWorldExample-main-tutorial-21 \
             -Dsonar.organization=research-projects-all
