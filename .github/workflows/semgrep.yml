@@ -1,13 +1,13 @@
-name: Semgrep
+name: Semgrep Spring
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "develop" ]
   pull_request:
-    branches: [ "master" ]
-  workflow_dispatch:
+    branches: [ "develop" ]
   schedule:
-    - cron: '28 0 * * 4'
+    - cron: '41 5 * * 3'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,20 +16,30 @@ permissions:
 
 jobs:
   semgrep:
-    name: Scan
+    name: Spring scan
     runs-on: ubuntu-latest
 
     container:
-      image: semgrep/semgrep
+      image: semgrep/semgrep:latest
+
+    if: github.actor != 'dependabot[bot]'
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-      - name: Run Semgrep default rules
-        run: semgrep scan --config p/default --sarif --output semgrep.sarif
+      - name: Run Semgrep default Java rules
+        run: |
+          semgrep scan \
+            --config auto \
+            --config p/java \
+            --config p/findsecbugs \
+            --sarif \
+            --output semgrep-spring.sarif \
+            .
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v3
         if: always()
+        uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: semgrep.sarif
+          sarif_file: semgrep-spring.sarif
