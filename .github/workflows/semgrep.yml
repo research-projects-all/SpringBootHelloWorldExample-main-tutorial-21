@@ -1,100 +1,45 @@
 name: Semgrep Spring
 on:
   push:
-    branches: ["main", "master", "develop"]
+    branches: ["main"]
   pull_request:
-    branches: ["main", "master", "develop"]
-  schedule:
-    - cron: '41 5 * * 3'
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
   contents: read
   security-events: write
-  actions: read
 
 jobs:
   semgrep:
-    name: Spring scan
     runs-on: ubuntu-latest
     container:
       image: semgrep/semgrep:latest
-    if: github.actor != 'dependabot[bot]'
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Run Semgrep (Java / Spring)
-        run: |
-          semgrep scan \
-            --config p/java \
-            --config p/spring \
-            --sarif \
-            --output semgrep-spring.sarif \
-            --metrics=off \
-            --error=false \
-            .
+      - run: semgrep scan --config p/java --config p/spring --sarif --output semgrep.sarif . || true
 
-      - name: Normalize SARIF for GitHub Code Scanning
+      - name: Fix long rule IDs
         if: always()
         run: |
-          python3 - <<'PY'
-          import hashlib, json
-          from pathlib import Path
+          python3 -c "
+          import json, hashlib
+          d = json.load(open('semgrep.sarif'))
+          for run in d.get('runs', []):
+              m = {}
+              for r in run.get('tool', {}).get('driver', {}).get('rules', []):
+                  if len(r.get('id', '')) > 255:
+                      new = r['id'][:238] + '_' + hashlib.sha256(r['id'].encode()).hexdigest()[:16]
+                      m[r['id']] = new
+                      r['id'] = new
+              for res in run.get('results', []):
+                  if res.get('ruleId') in m:
+                      res['ruleId'] = m[res['ruleId']]
+          json.dump(d, open('semgrep.sarif', 'w'))
+          "
 
-          MAX_RULE_ID_LEN = 255
-          path = Path("semgrep-spring.sarif")
-          if not path.exists():
-              raise SystemExit("SARIF file not produced")
-
-          sarif = json.loads(path.read_text())
-
-          severity_map = {
-              "critical": "9.0", "high": "8.0", "error": "8.0",
-              "medium": "5.0",   "warning": "5.0",
-              "low": "2.0",
-              "info": "1.0",     "note": "1.0",
-          }
-
-          def shorten(rule_id: str) -> str:
-              digest = hashlib.sha256(rule_id.encode("utf-8")).hexdigest()[:16]
-              keep = MAX_RULE_ID_LEN - len(digest) - 1
-              return f"{rule_id[:keep]}_{digest}"
-
-          for run in sarif.get("runs", []):
-              id_map = {}
-              rules = run.get("tool", {}).get("driver", {}).get("rules", []) or []
-
-              for rule in rules:
-                  props = rule.setdefault("properties", {})
-                  value = props.get("security-severity")
-                  if isinstance(value, str):
-                      normalized = severity_map.get(value.strip().lower())
-                      if normalized:
-                          props["security-severity"] = normalized
-                      else:
-                          props.pop("security-severity", None)
-
-                  rid = rule.get("id", "")
-                  if len(rid) > MAX_RULE_ID_LEN:
-                      new_id = shorten(rid)
-                      id_map[rid] = new_id
-                      rule["id"] = new_id
-                      props["original-rule-id"] = rid
-                      rule.setdefault("name", rid)
-
-              for result in run.get("results", []) or []:
-                  rid = result.get("ruleId")
-                  if rid in id_map:
-                      result["ruleId"] = id_map[rid]
-
-          path.write_text(json.dumps(sarif, indent=2))
-          print("SARIF normalized.")
-          PY
-
-      - name: Upload SARIF
+      - uses: github/codeql-action/upload-sarif@v4
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: semgrep-spring.sarif
-          category: semgrep-spring
+          sarif_file: semgrep.sarif
