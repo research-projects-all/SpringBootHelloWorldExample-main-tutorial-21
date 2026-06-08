@@ -2,9 +2,9 @@ name: Semgrep Spring
 
 on:
   push:
-    branches: [ "develop" ]
+    branches: [ "main", "master", "develop" ]
   pull_request:
-    branches: [ "develop" ]
+    branches: [ "main", "master", "develop" ]
   schedule:
     - cron: '41 5 * * 3'
   workflow_dispatch:
